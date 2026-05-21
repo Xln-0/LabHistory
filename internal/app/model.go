@@ -25,7 +25,7 @@ type Model struct {
 	addForm  AddFormState
 	editForm EditFormState
 
-	palette PaletteState
+	Palette components.List[PaletteCommand]
 }
 
 func New(db *sql.DB) *Model {
@@ -34,12 +34,6 @@ func New(db *sql.DB) *Model {
 		db:    db,
 		mode:  ModeNormal,
 		focus: FocusHosts,
-	}
-
-	m.palette.commands = []Command{
-		{label: "Add New Host", key: "add_host"},
-		{label: "Add Subdomain", key: "add_subdomain"},
-		{label: "Delete Subdomain", key: "del_subdomain"},
 	}
 
 	m.hosts.Title = "hosts"

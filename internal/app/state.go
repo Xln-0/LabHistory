@@ -1,6 +1,10 @@
 package app
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/Xln-0/labhistory/internal/app/components"
+)
 
 // Focus
 type Focus int
@@ -57,15 +61,10 @@ type EditFormState struct {
 	sections []EditSection
 }
 
-// Palette Commands (ctrl+p)
-type Command struct {
-	label string
-	key   string
-}
 type PaletteState struct {
-	cursor   int
-	commands []Command
-	filter   string
+	Cursor   int
+	Title    string
+	Commands components.List[PaletteCommand]
 }
 
 func (m Model) currentFields() []string {

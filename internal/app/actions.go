@@ -54,19 +54,3 @@ func (m *Model) ExportEnv() error {
 
 	return writeEnvFile(file, lines)
 }
-
-func (m *Model) executeCommand(key string) {
-
-	switch key {
-
-	case "add_host":
-		m.startAddHost()
-
-	case "add_subdomain":
-		m.startAddOption("subdomain")
-
-	case "del_subdomain":
-		m.startDeleteOption("subdomain")
-
-	}
-}

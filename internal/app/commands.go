@@ -1,34 +1,48 @@
 package app
 
-import (
-	"database/sql"
-
-	"github.com/Xln-0/labhistory/internal/db"
-	tea "github.com/charmbracelet/bubbletea"
-)
-
-func loadHostsCmd(database *sql.DB) tea.Cmd {
-
-	return func() tea.Msg {
-
-		hosts, err := db.LoadHosts(database)
-
-		return hostsLoadedMsg{
-			hosts: hosts,
-			err:   err,
-		}
-	}
+type PaletteCommand struct {
+	Name   string
+	Focus  Focus
+	Action func(m *Model)
 }
 
-func loadUsersCmd(database *sql.DB) tea.Cmd {
+var PaletteCommands = []PaletteCommand{
+	{
+		Name:  "Add Host",
+		Focus: FocusHosts,
+		Action: func(m *Model) {
+			m.startAddHost()
+		},
+	},
+	{
+		Name:  "Add Subdomain",
+		Focus: FocusHosts,
+		Action: func(m *Model) {
+			m.startAddOption("subdomain")
+		},
+	},
+	{
+		Name:  "Delete Subdomain",
+		Focus: FocusHosts,
+		Action: func(m *Model) {
+			m.startDeleteOption("subdomain")
+		},
+	},
+}
 
-	return func() tea.Msg {
+func (cmd PaletteCommand) Label() string {
+	return cmd.Name
+}
 
-		users, err := db.LoadUsers(database)
+func (m *Model) getFocusedCommands() []PaletteCommand {
 
-		return usersLoadedMsg{
-			users: users,
-			err:   err,
+	out := make([]PaletteCommand, 0)
+
+	for _, c := range PaletteCommands {
+		if c.Focus == m.focus {
+			out = append(out, c)
 		}
 	}
+
+	return out
 }

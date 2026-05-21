@@ -95,8 +95,6 @@ func (m *Model) handleNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// EDIT
 	// -------------------------
 	case "e":
-		m.mode = ModeEdit
-
 		if m.focus == 0 && len(m.hosts.Items) > 0 {
 			m.startEditHost()
 		}
@@ -105,8 +103,7 @@ func (m *Model) handleNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.startEditUser()
 		}
 
-		m.editForm.step = 0
-		m.editForm.cursor = len(m.editForm.fields[m.editForm.step]) - 1
+		m.editForm.cursor = len(m.editForm.values[m.editForm.step])
 
 	// -------------------------
 	// DELETE
@@ -123,106 +120,20 @@ func (m *Model) handleNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		_ = m.ExportEnv()
 
 	// -------------------------
-	// PALETTE
+	// Palette
 	// -------------------------
 	case "p", "ctrl+p":
 		m.mode = ModePalette
-		m.palette.cursor = 0
-		m.palette.filter = ""
+		m.Palette.Selected = 0
+		m.Palette.Items = m.getFocusedCommands()
+		if m.focus == FocusHosts {
+			m.Palette.Title = "HOST COMMANDS PALETTE"
+		} else {
+			m.Palette.Title = "USER COMMANDS PALETTE"
+		}
 	}
 
 	return m, nil
-}
-
-func (m *Model) startAddHost() {
-	m.mode = ModeAdd
-	m.focus = 0
-	m.addForm = AddFormState{
-		cursor: 0,
-		step:   0,
-		values: make([]string, len(m.currentFields())),
-		fields: m.currentFields(),
-		title:  "ADD HOST",
-		target: "host",
-	}
-}
-
-func (m *Model) startAddUser() {
-	m.mode = ModeAdd
-	m.focus = 1
-	m.addForm = AddFormState{
-		cursor: 0,
-		step:   0,
-		values: make([]string, len(m.currentFields())),
-		fields: m.currentFields(),
-		title:  "ADD USER",
-		target: "user",
-	}
-}
-
-func (m *Model) startEditHost() {
-	m.mode = ModeEdit
-	m.editForm = EditFormState{
-		cursor:    0,
-		step:      0,
-		values:    m.currentValues(),
-		fields:    m.currentFields(),
-		title:     "EDIT HOST",
-		target:    "host",
-		target_id: m.hosts.Items[m.hosts.Selected].ID,
-		sections:  m.getHostSections(),
-	}
-}
-
-func (m *Model) startEditUser() {
-	m.mode = ModeEdit
-	m.editForm = EditFormState{
-		cursor:    0,
-		step:      0,
-		values:    m.currentValues(),
-		fields:    m.currentFields(),
-		title:     "EDIT USER",
-		target:    "user",
-		target_id: m.users.Items[m.users.Selected].ID,
-		sections:  m.getUserSections(),
-	}
-}
-
-func (m *Model) startAddOption(option string) {
-	m.mode = ModeAddOption
-	m.addForm = AddFormState{
-		cursor: 0,
-		step:   0,
-		values: []string{""},
-		fields: []string{CapitalizeFirst(option)},
-		title:  "ADD " + strings.ToUpper(option),
-		target: option,
-	}
-}
-
-func (m *Model) startDeleteOption(option string) {
-
-	if m.focus != FocusHosts {
-		return
-	}
-
-	host := m.hosts.Items[m.hosts.Selected]
-
-	switch option {
-	case "subdomain":
-		if len(host.Subdomains) == 0 {
-			return
-		}
-
-		m.option = components.List[components.ListItem]{
-			Items:    subdomainsToList(host.Subdomains),
-			Selected: 0,
-			Title:    option,
-			Prefix:   "",
-		}
-	}
-
-	m.mode = ModeDeleteOption
 }
 
 func (m *Model) handleAdd(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -502,45 +413,6 @@ func (m *Model) handleDeleteConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *Model) handlePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-
-	switch msg.String() {
-
-	// -------------------------
-	// CANCEL
-	// -------------------------
-	case "esc", "p":
-		m.mode = ModeNormal
-
-	// -------------------------
-	// NAVIGATION DOWN
-	// -------------------------
-	case "j", "down":
-		if len(m.palette.commands) > 0 {
-			m.palette.cursor = (m.palette.cursor + 1) % len(m.palette.commands)
-		}
-
-	// -------------------------
-	// NAVIGATION UP
-	// -------------------------
-	case "k", "up":
-		if len(m.palette.commands) > 0 {
-			m.palette.cursor--
-			if m.palette.cursor < 0 {
-				m.palette.cursor = len(m.palette.commands) - 1
-			}
-		}
-
-	// -------------------------
-	// SELECT
-	// -------------------------
-	case "enter":
-		m.executeCommand(m.palette.commands[m.palette.cursor].key)
-	}
-
-	return m, nil
-}
-
 func (m *Model) handleDeleteOption(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.String() {
@@ -583,4 +455,134 @@ func (m *Model) handleDeleteOption(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func (m *Model) handlePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+
+	switch msg.String() {
+
+	// -------------------------
+	// CANCEL
+	// -------------------------
+	case "esc", "p":
+		m.mode = ModeNormal
+
+	// -------------------------
+	// NAVIGATION DOWN
+	// -------------------------
+	case "j", "down":
+		if len(m.Palette.Items) > 0 {
+			m.Palette.Selected = (m.Palette.Selected + 1) % len(m.Palette.Items)
+		}
+
+	// -------------------------
+	// NAVIGATION UP
+	// -------------------------
+	case "k", "up":
+		if len(m.Palette.Items) > 0 {
+			m.Palette.Selected--
+			if m.Palette.Selected < 0 {
+				m.Palette.Selected = len(m.Palette.Items) - 1
+			}
+		}
+
+	// -------------------------
+	// SELECT
+	// -------------------------
+	case "enter":
+		m.Palette.Items[m.Palette.Selected].Action(m)
+	}
+
+	return m, nil
+}
+
+func (m *Model) startAddHost() {
+	m.mode = ModeAdd
+	m.focus = 0
+	m.addForm = AddFormState{
+		cursor: 0,
+		step:   0,
+		values: make([]string, len(m.currentFields())),
+		fields: m.currentFields(),
+		title:  "ADD HOST",
+		target: "host",
+	}
+}
+
+func (m *Model) startAddUser() {
+	m.mode = ModeAdd
+	m.focus = 1
+	m.addForm = AddFormState{
+		cursor: 0,
+		step:   0,
+		values: make([]string, len(m.currentFields())),
+		fields: m.currentFields(),
+		title:  "ADD USER",
+		target: "user",
+	}
+}
+
+func (m *Model) startEditHost() {
+	m.mode = ModeEdit
+	m.editForm = EditFormState{
+		cursor:    0,
+		step:      0,
+		values:    m.currentValues(),
+		fields:    m.currentFields(),
+		title:     "EDIT HOST",
+		target:    "host",
+		target_id: m.hosts.Items[m.hosts.Selected].ID,
+		sections:  m.getHostSections(),
+	}
+}
+
+func (m *Model) startEditUser() {
+	m.mode = ModeEdit
+	m.editForm = EditFormState{
+		cursor:    0,
+		step:      0,
+		values:    m.currentValues(),
+		fields:    m.currentFields(),
+		title:     "EDIT USER",
+		target:    "user",
+		target_id: m.users.Items[m.users.Selected].ID,
+		sections:  m.getUserSections(),
+	}
+}
+
+func (m *Model) startAddOption(option string) {
+	m.mode = ModeAddOption
+	m.addForm = AddFormState{
+		cursor: 0,
+		step:   0,
+		values: []string{""},
+		fields: []string{CapitalizeFirst(option)},
+		title:  "ADD " + strings.ToUpper(option),
+		target: option,
+	}
+}
+
+func (m *Model) startDeleteOption(option string) {
+
+	if m.focus != FocusHosts {
+		return
+	}
+
+	host := m.hosts.Items[m.hosts.Selected]
+
+	switch option {
+	case "subdomain":
+		if len(host.Subdomains) == 0 {
+			return
+		}
+
+		m.option = components.List[components.ListItem]{
+			Items:    subdomainsToList(host.Subdomains),
+			Selected: 0,
+			Title:    option,
+			Prefix:   "",
+		}
+	}
+
+	m.mode = ModeDeleteOption
 }

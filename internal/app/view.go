@@ -303,20 +303,8 @@ func (m Model) renderFooter() string {
 }
 
 func (m Model) renderPalette() string {
-	var out string
 
-	out += "\n" + styles.Title.Render("COMMAND PALETTE") + "\n"
-	out += strings.Repeat("─", len("COMMAND PALETTE")) + "\n\n"
-
-	for i, cmd := range m.palette.commands {
-
-		cursor := " "
-		if i == m.palette.cursor {
-			cursor = ">"
-		}
-
-		out += cursor + " " + cmd.label + "\n"
-	}
+	out := m.Palette.Render(m.width-2, styles.ActiveTextStyle)
 
 	return styles.ActiveTab.Width(m.width - 2).Render(out)
 }
