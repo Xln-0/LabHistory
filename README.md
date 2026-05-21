@@ -1,10 +1,10 @@
+![version](https://img.shields.io/badge/version-v0.1-blue)
+
 # LabHistory
 
 LabHistory is a terminal-based tool (TUI) for managing lab environments, hosts, users, and related data in a fast and structured way.
 
 Built with Go and Bubble Tea.
-
----
 
 ## 🚀 Features (v0.1)
 
@@ -16,16 +16,12 @@ Built with Go and Bubble Tea.
 - 🗑️ Delete mode with confirmation
 - 📦 Environment export system
 
----
-
 ## 🧱 Architecture
 
 - `internal/app` → TUI logic (state, handlers, UI rendering)
 - `internal/components` → reusable UI components (List, etc.)
 - `internal/db` → database layer (SQL queries)
 - `cmd/labhistory` → entry point
-
----
 
 ## 🎮 Controls
 
@@ -40,8 +36,6 @@ Built with Go and Bubble Tea.
 - Edit mode → modify entries
 - Delete mode → confirm deletion
 
----
-
 ## 🗃️ Database
 
 SQLite-based schema:
@@ -49,8 +43,6 @@ SQLite-based schema:
 - machines (hosts)
 - users
 - subdomains (linked to hosts)
-
----
 
 ## ⚙️ Run
 
