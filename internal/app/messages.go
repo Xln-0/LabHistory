@@ -1,4 +1,4 @@
-package tui
+package app
 
 import "github.com/Xln-0/labhistory/internal/db"
 

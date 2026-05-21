@@ -1,4 +1,4 @@
-package tui
+package app
 
 func (m Model) currentFields() []string {
 
