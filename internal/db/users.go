@@ -36,7 +36,7 @@ func LoadUsers(db *sql.DB) ([]User, error) {
 	return list, nil
 }
 
-func InsertUser(db *sql.DB, u User) error {
+func CreateUser(db *sql.DB, u User) error {
 
 	_, err := db.Exec(
 		"INSERT INTO users(username, password, hash) VALUES (?, ?, ?)",

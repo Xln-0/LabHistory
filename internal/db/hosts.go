@@ -37,7 +37,7 @@ func LoadHosts(db *sql.DB) ([]Host, error) {
 	return list, nil
 }
 
-func InsertHost(db *sql.DB, h Host) error {
+func CreateHost(db *sql.DB, h Host) error {
 
 	_, err := db.Exec(
 		"INSERT INTO machines(name, ip, domain, role) VALUES (?, ?, ?, ?)",
