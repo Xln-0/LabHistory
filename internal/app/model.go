@@ -3,6 +3,7 @@ package app
 import (
 	"database/sql"
 
+	"github.com/Xln-0/labhistory/internal/app/components"
 	"github.com/Xln-0/labhistory/internal/db"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,32 +13,37 @@ type Model struct {
 	width  int
 	height int
 
-	mode Mode
+	focus Focus
+	mode  Mode
 
 	db *sql.DB
 
-	hosts []db.Host
-	users []db.User
-
-	hostSelected int
-	userSelected int
-
-	focus int
-
-	cursorPos int
+	hosts  components.List[db.Host]
+	users  components.List[db.User]
+	option components.List[components.ListItem]
 
 	addForm  AddFormState
 	editForm EditFormState
 
-	deleteIndex int
+	palette PaletteState
 }
 
 func New(db *sql.DB) *Model {
 
 	m := &Model{
-		db:   db,
-		mode: ModeNormal,
+		db:    db,
+		mode:  ModeNormal,
+		focus: FocusHosts,
 	}
+
+	m.palette.commands = []Command{
+		{label: "Add New Host", key: "add_host"},
+		{label: "Add Subdomain", key: "add_subdomain"},
+		{label: "Delete Subdomain", key: "del_subdomain"},
+	}
+
+	m.hosts.Title = "hosts"
+	m.users.Title = "users"
 
 	return m
 }
@@ -62,7 +68,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		m.hosts = msg.hosts
+		m.hosts.Items = msg.hosts
 		return m, nil
 
 	case usersLoadedMsg:
@@ -71,7 +77,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		m.users = msg.users
+		m.users.Items = msg.users
 		return m, nil
 
 	case tea.KeyMsg:
@@ -82,12 +88,5 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-
-	header := m.renderHeader()
-
-	body := m.renderBody()
-
-	footer := m.renderFooter()
-
-	return m.renderLayout(header, body, footer)
+	return m.renderLayout()
 }

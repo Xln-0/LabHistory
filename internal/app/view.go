@@ -4,10 +4,20 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Xln-0/labhistory/internal/app/styles"
 	"github.com/charmbracelet/lipgloss"
 )
 
-func (m Model) renderLayout(header, body, footer string) string {
+func (m Model) renderLayout() string {
+
+	header := m.renderHeader()
+	body := m.renderBody()
+	footer := m.renderFooter()
+
+	if m.mode == ModePalette {
+		body = m.renderPalette()
+	}
+
 	spacer := lipgloss.NewStyle().
 		Height(max(0, m.height-lipgloss.Height(header)-lipgloss.Height(body)-lipgloss.Height(footer))).
 		Render("")
@@ -26,65 +36,75 @@ func (m Model) renderLayout(header, body, footer string) string {
 		Render(screen)
 }
 
+func (m Model) renderBody() string {
+
+	tabs := m.renderTabs()
+	var middle string
+
+	switch m.mode {
+
+	case ModeAdd, ModeAddOption:
+		middle = m.renderAddForm()
+
+	case ModeEdit:
+		middle = m.renderEditForm()
+
+	case ModeDeleteConfirm:
+		middle = m.renderConfirmDelete()
+
+	case ModeDeleteOption:
+		middle = m.renderDeleteOption()
+
+	default:
+		middle = m.renderDetails()
+	}
+
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		tabs,
+		middle,
+	)
+}
+
 func (m Model) renderHosts() string {
+	var style lipgloss.Style
 
-	out := "\nHOSTS\n─────\n\n"
-
-	if len(m.hosts) == 0 {
-		out += "No Hosts"
-		return Border.Width(m.width/2 - 2).Render(out)
+	if m.focus == FocusHosts {
+		style = styles.ActiveTextStyle
+	} else {
+		style = styles.InactiveTextStyle
 	}
 
-	for i, h := range m.hosts {
-
-		cursor := " "
-		if i == m.hostSelected && m.focus == 0 {
-			cursor = ">"
-		}
-
-		out += cursor + " " + h.Name + "\n"
-	}
-
-	return out
+	return m.hosts.Render(m.width/2-2, style)
 }
 
 func (m Model) renderUsers() string {
+	var style lipgloss.Style
 
-	out := "\nUSERS\n─────\n\n"
-
-	if len(m.users) == 0 {
-		out += "No Users"
-		return Border.Width(m.width/2 - 2).Render(out)
+	if m.focus == FocusUsers {
+		style = styles.ActiveTextStyle
+	} else {
+		style = styles.InactiveTextStyle
 	}
 
-	for i, u := range m.users {
-
-		cursor := " "
-		if i == m.userSelected && m.focus == 1 {
-			cursor = ">"
-		}
-
-		out += cursor + " " + u.Username + "\n"
-	}
-
-	return out
+	return m.users.Render(m.width/2-2, style)
 }
 
-func (m Model) renderHeader() string {
-	height := max(len(m.hosts)+5, len(m.users)+5)
+func (m Model) renderTabs() string {
+	height := max(len(m.hosts.Items)+5, len(m.users.Items)+5)
 
 	host := m.renderHosts()
 	user := m.renderUsers()
 
 	if m.mode != ModeNormal {
-		host = InactiveTab.Height(height).Width(m.width/2 - 2).Render(host)
-		user = InactiveTab.Height(height).Width(m.width/2 - 2).Render(user)
+		host = styles.InactiveTab.Height(height).Width(m.width/2 - 2).Render(host)
+		user = styles.InactiveTab.Height(height).Width(m.width/2 - 2 + m.width%2).Render(user)
 	} else if m.focus == 0 {
-		user = InactiveTab.Height(height).Width(m.width/2 - 2).Render(user)
-		host = ActiveTab.Height(height).Width(m.width/2 - 2).Render(host)
+		host = styles.ActiveTab.Height(height).Width(m.width/2 - 2).Render(host)
+		user = styles.InactiveTab.Height(height).Width(m.width/2 - 2 + m.width%2).Render(user)
 	} else {
-		host = InactiveTab.Height(height).Width(m.width/2 - 2).Render(host)
-		user = ActiveTab.Height(height).Width(m.width/2 - 2).Render(user)
+		host = styles.InactiveTab.Height(height).Width(m.width/2 - 2).Render(host)
+		user = styles.ActiveTab.Height(height).Width(m.width/2 - 2 + m.width%2).Render(user)
 	}
 
 	return lipgloss.JoinHorizontal(
@@ -94,125 +114,115 @@ func (m Model) renderHeader() string {
 	)
 }
 
-func (m Model) renderBody() string {
-	switch m.mode {
-
-	case ModeAdd:
-		return m.renderAddForm()
-
-	case ModeEdit:
-		return m.renderEditForm()
-
-	case ModeDeleteConfirm:
-		return m.renderConfirmDelete()
-
-	default:
-		return m.renderDetails()
-	}
-}
-
 func (m Model) renderDetails() string {
 
-	content := "\n" + Title.Render("DETAILS") + "\n───────\n\n"
+	content := "\n" + styles.Title.Render("DETAILS") + "\n───────\n\n"
+
+	switch m.focus {
 
 	// -------------------------
 	// HOST FOCUS
 	// -------------------------
-	if m.focus == 0 {
+	case FocusHosts:
 
-		if len(m.hosts) == 0 || m.hostSelected >= len(m.hosts) {
-			return Border.Width(m.width - 2).Render("No host selected")
+		if len(m.hosts.Items) == 0 || m.hosts.Selected >= len(m.hosts.Items) {
+			return styles.Border.Width(m.width - 2).Render("No host selected")
 		}
 
-		host := m.hosts[m.hostSelected]
+		host := m.hosts.Items[m.hosts.Selected]
 
-		content += "Host: " + host.Name + "\n"
+		content += "Name: " + host.Name + "\n"
 		content += "IP: " + host.IP + "\n"
 		content += "Domain: " + host.Domain + "\n"
 		content += "Role: " + host.Role + "\n"
 
-	}
+		if len(host.Subdomains) > 0 {
+			content += "\nSubdomains:\n"
+
+			for _, s := range host.Subdomains {
+				content += " - " + s.Subdomain + "\n"
+			}
+		}
 
 	// -------------------------
 	// USER FOCUS
 	// -------------------------
-	if m.focus == 1 {
+	case FocusUsers:
 
-		if len(m.users) == 0 || m.userSelected >= len(m.users) {
-			return Border.Width(m.width - 2).Render("No user selected")
+		if len(m.users.Items) == 0 || m.users.Selected >= len(m.users.Items) {
+			return styles.Border.Width(m.width - 2).Render("No user selected")
 		}
 
-		user := m.users[m.userSelected]
+		user := m.users.Items[m.users.Selected]
 
 		content += "Username: " + user.Username + "\n"
 		content += "Password: " + user.Password + "\n"
 		content += "Hash: " + user.Hash + "\n"
 	}
 
-	return Border.Width(m.width - 2).Render(content)
+	return styles.Border.Width(m.width - 2).Render(content)
 }
 
 func (m Model) renderAddForm() string {
-	cursor := "|"
-
-	mode := "ADD HOST"
-	fields := []string{"Host", "IP", "Domain", "Role"}
-	if m.focus == 1 {
-		mode = "ADD USER"
-		fields = []string{"Username", "Password", "Hash"}
-	}
 
 	step := m.addForm.step
 
-	if step >= len(fields) {
-		step = len(fields) - 1
+	if step >= len(m.addForm.fields) {
+		step = len(m.addForm.fields) - 1
 	}
 
-	display := m.addForm.values[step]
+	val := lipgloss.NewStyle().
+		Render(renderWithCursor(m.addForm.values[step], m.addForm.cursor))
 
-	if m.cursorPos <= len(display) {
-		display =
-			display[:m.cursorPos] +
-				cursor +
-				display[m.cursorPos:]
-	} else {
-		display += cursor
-	}
+	out := "\n" + styles.Title.Render(m.addForm.title) + "\n"
+	out += strings.Repeat("─", len(m.addForm.title)) + "\n\n"
 
-	out := "\n" + Title.Render(mode) + "\n"
-	out += strings.Repeat("─", len(mode)) + "\n\n"
+	out += m.addForm.fields[step] + ": " + val + "\n\n"
 
-	out += fields[step] + ": " + display + "\n\n"
-
-	return ActiveTab.Width(m.width - 2).Render(out)
+	return styles.ActiveTab.Width(m.width - 2).Render(out)
 }
 
 func (m Model) renderEditForm() string {
 
-	mode := "EDIT HOST"
-	fields := []string{"Host", "IP", "Domain", "Role"}
-	if m.focus == 1 {
-		mode = "EDIT USER"
-		fields = []string{"Username", "Password", "Hash"}
-	}
+	out := "\n" + styles.Title.Render(m.editForm.title) + "\n"
+	out += strings.Repeat("─", len(m.editForm.title)) + "\n\n"
 
-	out := "\n" + Title.Render(mode) + "\n"
-	out += strings.Repeat("─", len(mode)) + "\n\n"
+	for _, section := range m.editForm.sections {
 
-	for i, label := range fields {
-
-		val := m.editForm.fields[i]
-
-		if i == m.editForm.field {
-			val = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#9fef00")).
-				Render(renderWithCursor(val, m.cursorPos))
+		if section.list {
+			out += "\n" + section.title + ":\n"
 		}
 
-		out += fmt.Sprintf("%s: %s\n", label, val)
+		for i := section.start; i < section.end; i++ {
+
+			val := m.editForm.values[i]
+
+			if i == m.editForm.step {
+				val = styles.ActiveTextStyle.
+					Render(renderWithCursor(val, m.editForm.cursor))
+			}
+
+			if section.list {
+				out += " - " + val + "\n"
+			} else {
+				out += fmt.Sprintf(
+					"%s: %s\n",
+					m.editForm.fields[i],
+					val,
+				)
+			}
+		}
+
 	}
 
-	return ActiveTab.Width(m.width - 2).Render(out)
+	return styles.ActiveTab.Width(m.width - 2).Render(out)
+}
+
+func (m Model) renderDeleteOption() string {
+
+	out := m.option.Render(m.width-2, styles.Warning)
+
+	return styles.ActiveTab.Width(m.width - 2).Render(out)
 }
 
 func (m Model) renderConfirmDelete() string {
@@ -222,24 +232,24 @@ func (m Model) renderConfirmDelete() string {
 	switch m.focus {
 
 	case 0: // HOST
-		h := m.hosts[m.deleteIndex]
+		h := m.hosts.Items[m.hosts.Selected]
 
-		out += Warning.Render("⚠ DELETE HOST ⚠") + "\n"
+		out += styles.Warning.Render("⚠ DELETE HOST ⚠") + "\n"
 		out += strings.Repeat("─", len("  DELETE HOST  ")) + "\n\n"
 		out += "Name: " + h.Name + "\n"
-		out += "IP:   " + h.IP + "\n\n"
+		out += "IP: " + h.IP + "\n\n"
 
 	case 1: // USER
-		u := m.users[m.deleteIndex]
+		u := m.users.Items[m.users.Selected]
 
-		out += Warning.Render("⚠ DELETE USER ⚠") + "\n"
+		out += styles.Warning.Render("⚠ DELETE USER ⚠") + "\n"
 		out += strings.Repeat("─", len("  DELETE USER  ")) + "\n\n"
 		out += "Username: " + u.Username + "\n\n"
 	}
 
 	out += "Confirm delete? (y/n)\n"
 
-	return ActiveTab.Width(m.width - 2).Render(out)
+	return styles.ActiveTab.Width(m.width - 2).Render(out)
 }
 
 func renderWithCursor(s string, cursor int) string {
@@ -250,23 +260,63 @@ func renderWithCursor(s string, cursor int) string {
 	return s[:cursor] + "|" + s[cursor:]
 }
 
+func (m *Model) renderHeader() string {
+
+	ascii := `                                  
+ __        _   _____ _     _               
+|  |   ___| |_|  |  |_|___| |_ ___ ___ _ _ 
+|  |__| .'| . |     | |_ -|  _| . |  _| | |
+|_____|__,|___|__|__|_|___|_| |___|_| |_  |
+                             by Xln-0 |___|
+`
+
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#9fef00")).
+		Width(m.width).
+		Padding(0, 0).
+		Align(lipgloss.Center).
+		Render(ascii)
+}
+
 func (m Model) renderFooter() string {
 
 	var text string
 
-	switch {
-	case m.mode == ModeDeleteConfirm:
+	switch m.mode {
+	case ModeDeleteConfirm:
 		text = "y:confirm  n:cancel"
 
-	case m.mode == ModeAdd || m.mode == ModeEdit:
-		text = "enter:next field/save  esc:cancel"
+	case ModeAdd, ModeEdit:
+		text = "enter:next/save  esc:cancel"
+
+	case ModePalette:
+		text = "↑/↓:navigate  enter:select  esc:cancel"
 
 	default:
-		text = "←/→:panel  a:add  e:edit  d:delete  x:export  q:quit"
+		text = "↑/↓:navigate  ←/→:panel  a:add  e:edit  d:delete  x:export  p:palette  q:quit"
 	}
 
-	return footerStyle.
+	return styles.FooterStyle.
 		Width(m.width).
 		Align(lipgloss.Center).
 		Render(text)
+}
+
+func (m Model) renderPalette() string {
+	var out string
+
+	out += "\n" + styles.Title.Render("COMMAND PALETTE") + "\n"
+	out += strings.Repeat("─", len("COMMAND PALETTE")) + "\n\n"
+
+	for i, cmd := range m.palette.commands {
+
+		cursor := " "
+		if i == m.palette.cursor {
+			cursor = ">"
+		}
+
+		out += cursor + " " + cmd.label + "\n"
+	}
+
+	return styles.ActiveTab.Width(m.width - 2).Render(out)
 }

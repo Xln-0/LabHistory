@@ -1,9 +1,39 @@
 package app
 
 import (
+	"strings"
+
+	"github.com/Xln-0/labhistory/internal/app/components"
 	"github.com/Xln-0/labhistory/internal/db"
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+
+	switch m.mode {
+
+	case ModeNormal:
+		return m.handleNormal(msg)
+
+	case ModeAdd, ModeAddOption:
+		return m.handleAdd(msg)
+
+	case ModeEdit:
+		return m.handleEdit(msg)
+
+	case ModeDeleteConfirm:
+		return m.handleDeleteConfirm(msg)
+
+	case ModePalette:
+		return m.handlePalette(msg)
+
+	case ModeDeleteOption:
+		return m.handleDeleteOption(msg)
+
+	}
+
+	return m, nil
+}
 
 func (m *Model) handleNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
@@ -25,29 +55,29 @@ func (m *Model) handleNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// NAVIGATION DOWN
 	// -------------------------
 	case "j", "down":
-		if m.focus == 0 && len(m.hosts) > 0 {
-			m.hostSelected = (m.hostSelected + 1) % len(m.hosts)
+		if m.focus == 0 && len(m.hosts.Items) > 0 {
+			m.hosts.Selected = (m.hosts.Selected + 1) % len(m.hosts.Items)
 		}
 
-		if m.focus == 1 && len(m.users) > 0 {
-			m.userSelected = (m.userSelected + 1) % len(m.users)
+		if m.focus == 1 && len(m.users.Items) > 0 {
+			m.users.Selected = (m.users.Selected + 1) % len(m.users.Items)
 		}
 
 	// -------------------------
 	// NAVIGATION UP
 	// -------------------------
 	case "k", "up":
-		if m.focus == 0 && len(m.hosts) > 0 {
-			m.hostSelected--
-			if m.hostSelected < 0 {
-				m.hostSelected = len(m.hosts) - 1
+		if m.focus == 0 && len(m.hosts.Items) > 0 {
+			m.hosts.Selected--
+			if m.hosts.Selected < 0 {
+				m.hosts.Selected = len(m.hosts.Items) - 1
 			}
 		}
 
-		if m.focus == 1 && len(m.users) > 0 {
-			m.userSelected--
-			if m.userSelected < 0 {
-				m.userSelected = len(m.users) - 1
+		if m.focus == 1 && len(m.users.Items) > 0 {
+			m.users.Selected--
+			if m.users.Selected < 0 {
+				m.users.Selected = len(m.users.Items) - 1
 			}
 		}
 
@@ -55,11 +85,11 @@ func (m *Model) handleNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// CREATE
 	// -------------------------
 	case "a":
-		m.mode = ModeAdd
-		m.addForm.input = ""
-		m.addForm.step = 0
-		m.addForm.cursorPos = 0
-		m.addForm.values = make([]string, len(m.currentFields()))
+		if m.focus == 0 {
+			m.startAddHost()
+		} else {
+			m.startAddUser()
+		}
 
 	// -------------------------
 	// EDIT
@@ -67,45 +97,23 @@ func (m *Model) handleNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "e":
 		m.mode = ModeEdit
 
-		if m.focus == 0 && len(m.hosts) > 0 {
-			h := m.hosts[m.hostSelected]
-
-			m.editForm.id = h.ID
-
-			m.editForm.fields = []string{
-				h.Name,
-				h.IP,
-				h.Domain,
-				h.Role,
-			}
+		if m.focus == 0 && len(m.hosts.Items) > 0 {
+			m.startEditHost()
 		}
 
-		if m.focus == 1 && len(m.users) > 0 {
-			u := m.users[m.userSelected]
-
-			m.editForm.id = u.ID
-
-			m.editForm.fields = []string{
-				u.Username,
-				u.Password,
-				u.Hash,
-			}
+		if m.focus == 1 && len(m.users.Items) > 0 {
+			m.startEditUser()
 		}
 
-		m.editForm.field = 0
-		m.cursorPos = len(m.editForm.fields[m.editForm.field])
+		m.editForm.step = 0
+		m.editForm.cursor = len(m.editForm.fields[m.editForm.step]) - 1
 
 	// -------------------------
 	// DELETE
 	// -------------------------
 	case "d":
-		m.mode = ModeDeleteConfirm
-
-		if m.focus == 0 && len(m.hosts) > 0 {
-			m.deleteIndex = m.hostSelected
-		}
-		if m.focus == 1 && len(m.users) > 0 {
-			m.deleteIndex = m.userSelected
+		if (m.focus == 0 && len(m.hosts.Items) > 0) || (m.focus == 1 && len(m.users.Items) > 0) {
+			m.mode = ModeDeleteConfirm
 		}
 
 	// -------------------------
@@ -113,9 +121,108 @@ func (m *Model) handleNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// -------------------------
 	case "x":
 		_ = m.ExportEnv()
+
+	// -------------------------
+	// PALETTE
+	// -------------------------
+	case "p", "ctrl+p":
+		m.mode = ModePalette
+		m.palette.cursor = 0
+		m.palette.filter = ""
 	}
 
 	return m, nil
+}
+
+func (m *Model) startAddHost() {
+	m.mode = ModeAdd
+	m.focus = 0
+	m.addForm = AddFormState{
+		cursor: 0,
+		step:   0,
+		values: make([]string, len(m.currentFields())),
+		fields: m.currentFields(),
+		title:  "ADD HOST",
+		target: "host",
+	}
+}
+
+func (m *Model) startAddUser() {
+	m.mode = ModeAdd
+	m.focus = 1
+	m.addForm = AddFormState{
+		cursor: 0,
+		step:   0,
+		values: make([]string, len(m.currentFields())),
+		fields: m.currentFields(),
+		title:  "ADD USER",
+		target: "user",
+	}
+}
+
+func (m *Model) startEditHost() {
+	m.mode = ModeEdit
+	m.editForm = EditFormState{
+		cursor:    0,
+		step:      0,
+		values:    m.currentValues(),
+		fields:    m.currentFields(),
+		title:     "EDIT HOST",
+		target:    "host",
+		target_id: m.hosts.Items[m.hosts.Selected].ID,
+		sections:  m.getHostSections(),
+	}
+}
+
+func (m *Model) startEditUser() {
+	m.mode = ModeEdit
+	m.editForm = EditFormState{
+		cursor:    0,
+		step:      0,
+		values:    m.currentValues(),
+		fields:    m.currentFields(),
+		title:     "EDIT USER",
+		target:    "user",
+		target_id: m.users.Items[m.users.Selected].ID,
+		sections:  m.getUserSections(),
+	}
+}
+
+func (m *Model) startAddOption(option string) {
+	m.mode = ModeAddOption
+	m.addForm = AddFormState{
+		cursor: 0,
+		step:   0,
+		values: []string{""},
+		fields: []string{CapitalizeFirst(option)},
+		title:  "ADD " + strings.ToUpper(option),
+		target: option,
+	}
+}
+
+func (m *Model) startDeleteOption(option string) {
+
+	if m.focus != FocusHosts {
+		return
+	}
+
+	host := m.hosts.Items[m.hosts.Selected]
+
+	switch option {
+	case "subdomain":
+		if len(host.Subdomains) == 0 {
+			return
+		}
+
+		m.option = components.List[components.ListItem]{
+			Items:    subdomainsToList(host.Subdomains),
+			Selected: 0,
+			Title:    option,
+			Prefix:   "",
+		}
+	}
+
+	m.mode = ModeDeleteOption
 }
 
 func (m *Model) handleAdd(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -132,10 +239,13 @@ func (m *Model) handleAdd(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// NEXT FIELD
 	// -------------------------
 	case "enter":
-		if m.addForm.step == len(m.currentFields())-1 {
+		if m.addForm.step == len(m.addForm.fields)-1 {
+
 			m.mode = ModeNormal
 
-			if m.focus == 0 {
+			switch m.addForm.target {
+
+			case "host":
 				// Create Host
 				h := db.Host{
 					Name:   m.addForm.values[0],
@@ -145,8 +255,8 @@ func (m *Model) handleAdd(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 				_ = db.CreateHost(m.db, h)
 				return m, loadHostsCmd(m.db)
-			}
-			if m.focus == 1 {
+
+			case "user":
 				// Create User
 				u := db.User{
 					Username: m.addForm.values[0],
@@ -155,31 +265,36 @@ func (m *Model) handleAdd(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 				_ = db.CreateUser(m.db, u)
 				return m, loadUsersCmd(m.db)
+
+			case "subdomain":
+				host := m.hosts.Items[m.hosts.Selected]
+
+				_ = db.AddSubDomain(m.db, host.ID, m.addForm.values[0])
+				return m, loadHostsCmd(m.db)
 			}
 		}
 		m.addForm.step++
-		m.addForm.input = ""
-		m.cursorPos = 0
+		m.addForm.cursor = 0
 
 	// -------------------------
 	// BACKSPACE
 	// -------------------------
 	case "backspace":
 		val := m.addForm.values[m.addForm.step]
-		if m.cursorPos > 0 && len(val) > 0 {
+		if m.addForm.cursor > 0 && len(val) > 0 {
 			m.addForm.values[m.addForm.step] =
-				val[:m.cursorPos-1] +
-					val[m.cursorPos:]
+				val[:m.addForm.cursor-1] +
+					val[m.addForm.cursor:]
 
-			m.cursorPos--
+			m.addForm.cursor--
 		}
 
 	// -------------------------
 	// LEFT
 	// -------------------------
 	case "left":
-		if m.cursorPos > 0 {
-			m.cursorPos--
+		if m.addForm.cursor > 0 {
+			m.addForm.cursor--
 		}
 
 	// -------------------------
@@ -187,8 +302,8 @@ func (m *Model) handleAdd(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// -------------------------
 	case "right":
 		val := m.addForm.values[m.addForm.step]
-		if m.cursorPos < len(val) {
-			m.cursorPos++
+		if m.addForm.cursor < len(val) {
+			m.addForm.cursor++
 		}
 
 	// -------------------------
@@ -199,11 +314,11 @@ func (m *Model) handleAdd(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			val := m.addForm.values[m.addForm.step]
 
 			m.addForm.values[m.addForm.step] =
-				val[:m.cursorPos] +
+				val[:m.addForm.cursor] +
 					msg.String() +
-					val[m.cursorPos:]
+					val[m.addForm.cursor:]
 
-			m.cursorPos++
+			m.addForm.cursor++
 		}
 	}
 
@@ -225,87 +340,106 @@ func (m *Model) handleEdit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// -------------------------
 	case "enter":
 
-		if m.editForm.field == len(m.editForm.fields)-1 {
-			m.mode = ModeNormal
+		m.mode = ModeNormal
 
-			if m.focus == 0 {
+		if m.focus == 0 {
 
-				// Update Host
-				h := db.Host{
-					ID:     m.editForm.id,
-					Name:   m.editForm.fields[0],
-					IP:     m.editForm.fields[1],
-					Domain: m.editForm.fields[2],
-					Role:   m.editForm.fields[3],
-				}
-				_ = db.UpdateHost(m.db, h)
-				return m, loadHostsCmd(m.db)
+			// Update Host
+			host := m.hosts.Items[m.hosts.Selected]
+			newHost := db.Host{
+				ID:     m.editForm.target_id,
+				Name:   m.editForm.values[0],
+				IP:     m.editForm.values[1],
+				Domain: m.editForm.values[2],
+				Role:   m.editForm.values[3],
+			}
+			if host.Name != newHost.Name ||
+				host.IP != newHost.IP ||
+				host.Domain != newHost.Domain ||
+				host.Role != newHost.Role {
+				_ = db.UpdateHost(m.db, newHost)
 			}
 
-			if m.focus == 1 {
-
-				// Update User
-				u := db.User{
-					ID:       m.editForm.id,
-					Username: m.editForm.fields[0],
-					Password: m.editForm.fields[1],
-					Hash:     m.editForm.fields[2],
+			if len(m.editForm.sections) > 1 {
+				// Update Options
+				for _, section := range m.editForm.sections {
+					switch section.title {
+					case "Subdomains":
+						host := m.hosts.Items[m.hosts.Selected]
+						for i := range host.Subdomains {
+							s := host.Subdomains[i]
+							newVal := m.editForm.values[4+i]
+							if s.Subdomain != newVal {
+								_ = db.UpdateSubDomain(m.db, s.ID, newVal)
+							}
+						}
+					}
 				}
-				_ = db.UpdateUser(m.db, u)
-				return m, loadUsersCmd(m.db)
 			}
+
+			return m, loadHostsCmd(m.db)
 		}
 
-		m.editForm.field++
-		m.cursorPos = len(m.editForm.fields[m.editForm.field])
+		if m.focus == 1 {
+
+			// Update User
+			u := db.User{
+				ID:       m.editForm.target_id,
+				Username: m.editForm.values[0],
+				Password: m.editForm.values[1],
+				Hash:     m.editForm.values[2],
+			}
+			_ = db.UpdateUser(m.db, u)
+			return m, loadUsersCmd(m.db)
+		}
 
 	// -------------------------
 	// BACKSPACE
 	// -------------------------
 	case "backspace":
-		val := m.editForm.fields[m.editForm.field]
+		val := m.editForm.values[m.editForm.step]
 
-		if m.cursorPos > 0 && len(val) > 0 {
-			m.editForm.fields[m.editForm.field] =
-				val[:m.cursorPos-1] +
-					val[m.cursorPos:]
+		if m.editForm.cursor > 0 && len(val) > 0 {
+			m.editForm.values[m.editForm.step] =
+				val[:m.editForm.cursor-1] +
+					val[m.editForm.cursor:]
 
-			m.cursorPos--
+			m.editForm.cursor--
 		}
 
 	// -------------------------
 	// LEFT
 	// -------------------------
 	case "left":
-		if m.cursorPos > 0 {
-			m.cursorPos--
+		if m.editForm.cursor > 0 {
+			m.editForm.cursor--
 		}
 
 	// -------------------------
 	// RIGHT
 	// -------------------------
 	case "right":
-		val := m.editForm.fields[m.editForm.field]
-		if m.cursorPos < len(val) {
-			m.cursorPos++
+		val := m.editForm.values[m.editForm.step]
+		if m.editForm.cursor < len(val) {
+			m.editForm.cursor++
 		}
 
 	// -------------------------
 	// UP
 	// -------------------------
 	case "up":
-		if m.editForm.field > 0 {
-			m.editForm.field--
-			m.cursorPos = len(m.editForm.fields[m.editForm.field])
+		if m.editForm.step > 0 {
+			m.editForm.step--
+			m.editForm.cursor = len(m.editForm.values[m.editForm.step])
 		}
 
 	// -------------------------
 	// DOWN
 	// -------------------------
 	case "down":
-		if m.editForm.field < len(m.editForm.fields)-1 {
-			m.editForm.field++
-			m.cursorPos = len(m.editForm.fields[m.editForm.field])
+		if m.editForm.step < len(m.editForm.values)-1 {
+			m.editForm.step++
+			m.editForm.cursor = len(m.editForm.values[m.editForm.step])
 		}
 
 	// -------------------------
@@ -313,15 +447,14 @@ func (m *Model) handleEdit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// -------------------------
 	default:
 		if msg.Type == tea.KeyRunes {
-			val := m.editForm.fields[m.editForm.field]
+			val := m.editForm.values[m.editForm.step]
 
-			val =
-				val[:m.cursorPos] +
+			m.editForm.values[m.editForm.step] =
+				val[:m.editForm.cursor] +
 					msg.String() +
-					val[m.cursorPos:]
+					val[m.editForm.cursor:]
 
-			m.editForm.fields[m.editForm.field] = val
-			m.cursorPos++
+			m.editForm.cursor++
 		}
 	}
 
@@ -330,32 +463,34 @@ func (m *Model) handleEdit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m *Model) handleDeleteConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
+	m.mode = ModeNormal
+
 	switch msg.String() {
 
 	case "y":
 
 		switch m.focus {
 
-		case 0: // HOSTS
-			id := m.hosts[m.deleteIndex].ID
+		case FocusHosts: // HOSTS
+			id := m.hosts.Items[m.hosts.Selected].ID
 			_ = db.DeleteHost(m.db, id)
 
-			if len(m.hosts) == 0 {
-				m.hostSelected = 0
-			} else if m.hostSelected >= len(m.hosts)-1 {
-				m.hostSelected = len(m.hosts) - 2
+			if len(m.hosts.Items) == 0 {
+				m.hosts.Selected = 0
+			} else if m.hosts.Selected >= len(m.hosts.Items)-1 {
+				m.hosts.Selected = len(m.hosts.Items) - 2
 			}
 
 			return m, loadHostsCmd(m.db)
 
-		case 1: // USERS
-			id := m.users[m.deleteIndex].ID
+		case FocusUsers: // USERS
+			id := m.users.Items[m.users.Selected].ID
 			_ = db.DeleteUser(m.db, id)
 
-			if len(m.users) == 0 {
-				m.userSelected = 0
-			} else if m.userSelected >= len(m.users)-1 {
-				m.userSelected = len(m.users) - 2
+			if len(m.users.Items) == 0 {
+				m.users.Selected = 0
+			} else if m.users.Selected >= len(m.users.Items)-1 {
+				m.users.Selected = len(m.users.Items) - 2
 			}
 
 			return m, loadUsersCmd(m.db)
@@ -364,7 +499,88 @@ func (m *Model) handleDeleteConfirm(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	}
 
-	m.mode = ModeNormal
+	return m, nil
+}
+
+func (m *Model) handlePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+
+	switch msg.String() {
+
+	// -------------------------
+	// CANCEL
+	// -------------------------
+	case "esc", "p":
+		m.mode = ModeNormal
+
+	// -------------------------
+	// NAVIGATION DOWN
+	// -------------------------
+	case "j", "down":
+		if len(m.palette.commands) > 0 {
+			m.palette.cursor = (m.palette.cursor + 1) % len(m.palette.commands)
+		}
+
+	// -------------------------
+	// NAVIGATION UP
+	// -------------------------
+	case "k", "up":
+		if len(m.palette.commands) > 0 {
+			m.palette.cursor--
+			if m.palette.cursor < 0 {
+				m.palette.cursor = len(m.palette.commands) - 1
+			}
+		}
+
+	// -------------------------
+	// SELECT
+	// -------------------------
+	case "enter":
+		m.executeCommand(m.palette.commands[m.palette.cursor].key)
+	}
+
+	return m, nil
+}
+
+func (m *Model) handleDeleteOption(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+
+	switch msg.String() {
+
+	// -------------------------
+	// CANCEL
+	// -------------------------
+	case "esc":
+		m.mode = ModeNormal
+
+	// -------------------------
+	// NAVIGATION DOWN
+	// -------------------------
+	case "j", "down":
+		if len(m.option.Items) > 0 {
+			m.option.Selected = (m.option.Selected + 1) % len(m.option.Items)
+		}
+
+	// -------------------------
+	// NAVIGATION UP
+	// -------------------------
+	case "k", "up":
+		if len(m.option.Items) > 0 {
+			m.option.Selected--
+			if m.option.Selected < 0 {
+				m.option.Selected = len(m.option.Items) - 1
+			}
+		}
+
+	// -------------------------
+	// SELECT
+	// -------------------------
+	case "enter":
+		m.mode = ModeNormal
+
+		id := m.option.Items[m.option.Selected].ID
+		_ = db.DeleteSubDomain(m.db, id)
+
+		return m, loadHostsCmd(m.db)
+	}
 
 	return m, nil
 }

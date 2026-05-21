@@ -9,6 +9,10 @@ type User struct {
 	Hash     string
 }
 
+func (u User) Label() string {
+	return u.Username
+}
+
 func LoadUsers(db *sql.DB) ([]User, error) {
 
 	rows, err := db.Query(

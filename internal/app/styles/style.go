@@ -1,4 +1,4 @@
-package app
+package styles
 
 import "github.com/charmbracelet/lipgloss"
 
@@ -27,14 +27,16 @@ var Title = lipgloss.NewStyle().
 	Bold(true).
 	Foreground(lipgloss.Color("39"))
 
+var ActiveTextStyle = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#9fef00"))
+
+var InactiveTextStyle = lipgloss.NewStyle()
+
 var Warning = lipgloss.NewStyle().
 	Bold(true).
 	Foreground(lipgloss.Color("#ff5f5f"))
 
-var Footer = lipgloss.NewStyle().
-	Foreground(lipgloss.Color("240"))
-
-var footerStyle = lipgloss.NewStyle().
+var FooterStyle = lipgloss.NewStyle().
 	Foreground(lipgloss.Color("240")).
 	Padding(1, 1).
 	BorderTop(true).
