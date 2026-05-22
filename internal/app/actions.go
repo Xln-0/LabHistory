@@ -58,14 +58,17 @@ func (m *Model) ExportEnv() error {
 	return writeEnvFile(file, lines)
 }
 
-func writeEtcHostsWithSudo(line string, password string) error {
+func writeEtcHostsWithSudo(ip, line, password string) error {
 
 	cmd := exec.Command(
 		"sudo",
 		"-S",
 		"sh",
 		"-c",
-		fmt.Sprintf("echo '%s' >> /etc/hosts", line),
+		fmt.Sprintf(`
+sed -i '/^%s.*$/d' /etc/hosts &&
+echo '%s' >> /etc/hosts
+`, ip, line),
 	)
 
 	stdin, err := cmd.StdinPipe()

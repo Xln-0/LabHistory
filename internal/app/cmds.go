@@ -33,10 +33,10 @@ func loadUsersCmd(database *sql.DB) tea.Cmd {
 	}
 }
 
-func syncEtcHostsCmd(line string, password string) tea.Cmd {
+func syncEtcHostsCmd(ip, line, password string) tea.Cmd {
 	return func() tea.Msg {
 
-		err := writeEtcHostsWithSudo(line, password)
+		err := writeEtcHostsWithSudo(ip, line, password)
 
 		return syncFinishedMsg{
 			err: err,

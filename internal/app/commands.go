@@ -57,7 +57,7 @@ var PaletteCommands = []PaletteCommand{
 			m.initSudoPrompt()
 
 			m.sudoCmd = func(password string) tea.Cmd {
-				return syncEtcHostsCmd(line, password)
+				return syncEtcHostsCmd(host.IP, line, password)
 			}
 
 			m.mode = ModeSudoPrompt

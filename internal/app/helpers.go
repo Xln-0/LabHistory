@@ -84,5 +84,5 @@ func buildHostsLine(ip, domain string, subs []components.ListItem) string {
 		line += " " + s.Name
 	}
 
-	return line + "\n"
+	return line
 }
