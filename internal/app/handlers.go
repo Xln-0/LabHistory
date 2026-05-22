@@ -5,6 +5,7 @@ import (
 
 	"github.com/Xln-0/labhistory/internal/app/components"
 	"github.com/Xln-0/labhistory/internal/db"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -29,6 +30,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case ModeDeleteOption:
 		return m.handleDeleteOption(msg)
+
+	case ModeSudoPrompt:
+		return m.handleSudoPrompt(msg)
 
 	}
 
@@ -496,6 +500,27 @@ func (m *Model) handlePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *Model) handleSudoPrompt(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+
+	switch msg.String() {
+	case "esc":
+		m.mode = ModeNormal
+		return m, nil
+
+	case "enter":
+		password := m.sudoInput.Value()
+
+		m.mode = ModeNormal
+
+		return m, m.sudoCmd(password)
+	}
+
+	var cmd tea.Cmd
+	m.sudoInput, cmd = m.sudoInput.Update(msg)
+
+	return m, cmd
+}
+
 func (m *Model) startAddHost() {
 	m.mode = ModeAdd
 	m.focus = 0
@@ -585,4 +610,16 @@ func (m *Model) startDeleteOption(option string) {
 	}
 
 	m.mode = ModeDeleteOption
+}
+
+func (m *Model) initSudoPrompt() {
+	ti := textinput.New()
+
+	ti.Placeholder = "sudo password"
+	ti.Focus()
+
+	ti.EchoMode = textinput.EchoPassword
+	ti.EchoCharacter = '•'
+
+	m.sudoInput = ti
 }

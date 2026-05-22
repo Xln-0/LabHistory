@@ -11,3 +11,7 @@ type usersLoadedMsg struct {
 	users []db.User
 	err   error
 }
+
+type syncFinishedMsg struct {
+	err error
+}

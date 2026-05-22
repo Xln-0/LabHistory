@@ -25,6 +25,7 @@ const (
 	ModePalette
 	ModeAddOption
 	ModeDeleteOption
+	ModeSudoPrompt
 )
 
 type AddFormState struct {

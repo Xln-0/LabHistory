@@ -6,6 +6,7 @@ import (
 	"github.com/Xln-0/labhistory/internal/app/components"
 	"github.com/Xln-0/labhistory/internal/db"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -13,8 +14,9 @@ type Model struct {
 	width  int
 	height int
 
-	focus Focus
-	mode  Mode
+	focus  Focus
+	mode   Mode
+	status string
 
 	db *sql.DB
 
@@ -25,7 +27,12 @@ type Model struct {
 	addForm  AddFormState
 	editForm EditFormState
 
+	sudoInput textinput.Model
+	sudoCmd   func(password string) tea.Cmd
+
 	Palette components.List[PaletteCommand]
+
+	errMessage string
 }
 
 func New(db *sql.DB) *Model {
@@ -58,7 +65,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case hostsLoadedMsg:
 		if msg.err != nil {
-			// handle error (e.g., log it)
+			m.errMessage = msg.err.Error()
 			return m, nil
 		}
 
@@ -67,11 +74,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case usersLoadedMsg:
 		if msg.err != nil {
-			// handle error (e.g., log it)
+			m.errMessage = msg.err.Error()
 			return m, nil
 		}
 
 		m.users.Items = msg.users
+		return m, nil
+
+	case syncFinishedMsg:
+		if msg.err != nil {
+			m.errMessage = msg.err.Error()
+		} else {
+			m.errMessage = "Sync OK"
+		}
+
 		return m, nil
 
 	case tea.KeyMsg:

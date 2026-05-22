@@ -1,7 +1,10 @@
 package app
 
 import (
+	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 )
 
@@ -53,4 +56,33 @@ func (m *Model) ExportEnv() error {
 	}
 
 	return writeEnvFile(file, lines)
+}
+
+func writeEtcHostsWithSudo(line string, password string) error {
+
+	cmd := exec.Command(
+		"sudo",
+		"-S",
+		"sh",
+		"-c",
+		fmt.Sprintf("echo '%s' >> /etc/hosts", line),
+	)
+
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		defer stdin.Close()
+		io.WriteString(stdin, password+"\n")
+	}()
+
+	out, err := cmd.CombinedOutput()
+
+	if err != nil {
+		return fmt.Errorf("%v: %s", err, string(out))
+	}
+
+	return nil
 }

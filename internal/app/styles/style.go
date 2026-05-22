@@ -17,6 +17,12 @@ var ActiveTab = lipgloss.NewStyle().
 	Bold(true).
 	Padding(0, 1)
 
+var ActiveTabNoBold = lipgloss.NewStyle().
+	Border(lipgloss.RoundedBorder()).
+	BorderForeground(Accent).
+	Bold(true).
+	Padding(0, 1)
+
 var InactiveTab = lipgloss.NewStyle().
 	Border(lipgloss.RoundedBorder()).
 	BorderForeground(lipgloss.Color("240")).

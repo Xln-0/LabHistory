@@ -18,6 +18,23 @@ func (m Model) renderLayout() string {
 		body = m.renderPalette()
 	}
 
+	if m.mode == ModeSudoPrompt {
+
+		box := styles.ActiveTabNoBold.
+			Render(
+				"🔒 sudo authentication\n\n" +
+					m.sudoInput.View(),
+			)
+
+		return lipgloss.Place(
+			m.width,
+			m.height,
+			lipgloss.Center,
+			lipgloss.Center,
+			box,
+		)
+	}
+
 	spacer := lipgloss.NewStyle().
 		Height(max(0, m.height-lipgloss.Height(header)-lipgloss.Height(body)-lipgloss.Height(footer))).
 		Render("")

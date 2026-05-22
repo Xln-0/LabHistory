@@ -32,3 +32,14 @@ func loadUsersCmd(database *sql.DB) tea.Cmd {
 		}
 	}
 }
+
+func syncEtcHostsCmd(line string, password string) tea.Cmd {
+	return func() tea.Msg {
+
+		err := writeEtcHostsWithSudo(line, password)
+
+		return syncFinishedMsg{
+			err: err,
+		}
+	}
+}

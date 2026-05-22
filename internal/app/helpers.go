@@ -75,3 +75,14 @@ func subdomainsToList(subs []db.Subdomain) []components.ListItem {
 
 	return items
 }
+
+func buildHostsLine(ip, domain string, subs []components.ListItem) string {
+
+	line := ip + "\t" + domain
+
+	for _, s := range subs {
+		line += " " + s.Name
+	}
+
+	return line + "\n"
+}
